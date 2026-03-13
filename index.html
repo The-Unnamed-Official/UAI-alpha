@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UnAI — Chat</title>
+<link rel="icon" href="data:,">
+<script src="https://kit.fontawesome.com/fe85db6219.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+<script>
+  if (window.marked) marked.setOptions({ mangle:false, headerIds:false, breaks:true });
+</script>
+<style>
+/* ====== DESIGN TOKENS ====== */
+:root{
+  --duration-fast: 120ms;
+  --duration: 180ms;
+  --duration-slow: 220ms;
+  --ease: cubic-bezier(.2,.6,.2,1);
+  --radius: 14px;
+  --radius-lg: 18px;
+  --shadow-1: 0 4px 18px rgba(0,0,0,.12);
+  --shadow-2: 0 12px 34px rgba(0,0,0,.18);
+  --accent: #6ea8fe;
+  --danger: #ff6b6b;
+  --icon: var(--muted);
+}
+.theme-dark{
+  --bg: #0f1115;
+  --panel: #151923;
+  --panel-2: #0b0d13;
+  --text: #eef1f7;
+  --muted:#8d94a8;
+  --border:#23293a;
+  --icon: #d6def0; 
+  --user-pill: #1e2230;
+}
+.theme-light{
+  --bg:#f5f7fb;
+  --panel:#ffffff;
+  --panel-2:#f2f5fb;
+  --text:#0b1220;
+  --muted:#5f6676;
+  --border:#e7eaf2;
+  --icon: #475167;
+  --user-pill: #e1e4eb;
+}
+.theme-amoled{
+  --bg:#000;
+  --panel:#0a0a0a;
+  --panel-2:#050505;
+  --text:#f6f7fb;
+  --muted:#a1a8b5;
+  --border:#121212;
+  --icon: #d6def0;
+  --user-pill: #1e2230;
+}
+
+/* ====== BASE ====== */
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font:500 16px/1.45 system-ui, -apple-system, Segoe UI, Inter, Roboto, "Helvetica Neue", Arial;
+  transition: background-color var(--duration-slow) var(--ease), color var(--duration-slow) var(--ease);
+}
+*{box-sizing:border-box}
+
+
+
+/* Drop-down menu */
+.user-wrap{ position:relative; display:inline-block; }
+.menu.dropdown{
+  position:absolute; top: calc(100% + 8px); left: 0;
+  background:var(--panel); border:1px solid var(--border); border-radius:12px;
+  padding:6px; min-width:180px; display:none; box-shadow:var(--shadow-2);
+}
+.menu.dropdown.open{ display:block; animation: fade-in var(--duration) var(--ease), drop-in var(--duration) var(--ease); }
+.menu-item{
+  display:flex; align-items:center; gap:8px; width:100%;
+  background:transparent; border:none; color:var(--text); padding:8px 10px; border-radius:8px; cursor:pointer;
+  transition: background var(--duration) var(--ease);
+}
+.menu-item:hover{ background:var(--panel-2); }
+
+/* ====== LAYOUT ====== */
+.app{display:grid; grid-template-columns: 300px 1fr; height:100vh}
+.sidebar{
+  border-right:1px solid var(--border);
+  background: linear-gradient(180deg, var(--panel) 0%, color-mix(in srgb, var(--panel), transparent 10%) 100%);
+  display:flex; flex-direction:column; padding:12px; gap:12px; overflow:hidden;
+}
+.brand{display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:var(--radius)}
+.brand .logo{
+  width:30px;height:30px;border-radius:8px;background:var(--panel-2);
+  display:grid;place-items:center; overflow:hidden; border:1px solid var(--border);
+  box-shadow: var(--shadow-1);
+}
+.brand .logo img{width:100%;height:100%;object-fit:cover; display:block}
+.brand h1{font-size:15px; margin:0; letter-spacing:.2px; font-weight:800}
+.pill{padding:4px 8px; border:1px solid var(--border); border-radius:999px; font-size:12px; color:var(--muted)}
+.actions{display:flex; gap:8px}
+.iconbtn i, .search .fa-solid, .pill i{ color: var(--icon); }
+.pill i{ margin-right: 6px; }
+.user-pill{ background-color: var(--user-pill); cursor: pointer; transition: filter var(--duration-fast) var(--ease); }
+.user-pill:hover{ filter: brightness(1.25); }
+
+.iconbtn, .btn{
+  border:none; cursor:pointer; border-radius:10px; font-weight:700;
+  transition: transform var(--duration-fast) var(--ease), filter var(--duration-fast) var(--ease), background var(--duration) var(--ease), color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+}
+.iconbtn{width:36px;height:36px; display:grid; place-items:center; background:var(--panel); border:1px solid var(--border)}
+.iconbtn:hover{transform:translateY(-1px); box-shadow:var(--shadow-1)}
+.btn{padding:10px 12px; background:var(--accent); color:#0b1220}
+.btn.secondary{background:var(--panel); color:var(--text); border:1px solid var(--border)}
+.btn.ghost{background:transparent; border:1px solid var(--border); color:var(--text)}
+.btn:hover{filter:brightness(1.03)}
+.btn:active{transform:translateY(1px)}
+.btn.block{ width:100%; }
+
+.search{
+  background:var(--panel); border:1px solid var(--border); border-radius:12px;
+  padding:8px 12px; display:flex; gap:8px; align-items:center; box-shadow: var(--shadow-1);
+  transition: box-shadow var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+.search:focus-within{box-shadow: var(--shadow-2); border-color: color-mix(in srgb, var(--accent), var(--border) 65%)}
+.search input{flex:1; background:transparent; border:none; outline:none; color:var(--text)}
+
+.list{overflow:auto; flex:1; display:flex; flex-direction:column; gap:8px; padding-right:2px}
+.conv{
+  position:relative;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--panel);
+  padding:10px 12px;
+  display:flex; align-items:center; gap:10px; justify-content:space-between;
+  transform: translateY(0);
+  transition:
+    transform var(--duration-fast) var(--ease),
+    border-color var(--duration) var(--ease),
+    background var(--duration) var(--ease),
+    box-shadow var(--duration) var(--ease);
+}
+.conv:hover{
+  transform:translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent), var(--border) 65%);
+  box-shadow: var(--shadow-1);
+}
+.conv.active{
+  border-color: color-mix(in srgb, var(--accent), var(--border) 55%);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent), transparent 70%), var(--shadow-1);
+}
+.conv:focus-visible{
+  outline: none;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent), transparent 50%),
+    var(--shadow-1);
+}
+.conv .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.conv-main{ display:flex; align-items:center; gap:10px; min-width:0; flex:1; }
+.conv .title{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:650 }
+.conv .iconbtn.trash{
+  width:32px; height:32px; border-radius:8px;
+  background:var(--panel); border:1px solid var(--border);
+  opacity:0; transform:scale(.95);
+  transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease), background var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+.conv:hover .iconbtn.trash,
+.conv.active .iconbtn.trash{ opacity:1; transform:none; }
+.conv .iconbtn.trash i{ color: color-mix(in srgb, var(--danger), var(--text) 20%); }
+.conv .iconbtn.trash:hover{
+  background: color-mix(in srgb, var(--danger), var(--panel) 88%);
+  border-color: color-mix(in srgb, var(--danger), var(--border) 70%);
+}
+
+.sidebar .footer{
+  display:flex; gap:8px; align-items:center; justify-content:space-between; padding:6px 2px; color:var(--muted);
+  border-top:1px dashed var(--border);
+}
+
+.main{display:grid; grid-template-rows: auto 1fr auto; height:100vh}
+.topbar{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:12px 16px; border-bottom:1px solid var(--border); background:var(--panel); position:relative;
+  backdrop-filter: blur(4px);
+}
+.model{display:flex; align-items:center; gap:10px}
+
+.chat{
+  padding:20px; overflow:auto; display:flex; flex-direction:column; gap:14px;
+  background:
+    radial-gradient(900px 500px at 75% -10%, color-mix(in srgb, var(--accent), transparent 95%) 0%, transparent 60%),
+    radial-gradient(600px 360px at -10% 10%, color-mix(in srgb, var(--accent), transparent 96%) 0%, transparent 60%);
+}
+
+/* ====== MESSAGE ====== */
+.msg{
+  display:grid; grid-template-columns: 40px 1fr; gap:10px; align-items:flex-start;
+  padding:12px 14px; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--panel);
+  box-shadow: var(--shadow-1);
+  animation: pop-in var(--duration) var(--ease);
+}
+.msg.assistant{background:linear-gradient(180deg, color-mix(in srgb, var(--panel), #fff 3%) 0%, var(--panel) 100%)}
+@keyframes pop-in{from{opacity:0; transform: translateY(6px)} to{opacity:1; transform:none}}
+
+.avatar{
+  width:40px; height:40px; border-radius:12px; display:grid; place-items:center; overflow:hidden;
+  background:var(--panel-2); border:1px solid var(--border)
+}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.avatar i{ font-size:18px; color: var(--icon); }
+
+.msg .content{white-space:pre-wrap}
+.msg .content code{
+  background: var(--panel-2); padding:.2em .4em; border-radius:6px; border:1px solid var(--border);
+}
+.msg .content pre{
+  background: var(--panel-2); padding:14px; border-radius:12px; overflow:auto; border:1px solid var(--border);
+}
+
+/* ====== COMPOSER ====== */
+.composer{
+  padding:16px; border-top:1px solid var(--border); background:var(--panel); position:sticky; bottom:0;
+}
+.composer .wrap{display:flex; gap:10px; align-items:flex-end; max-width:1000px; margin:0 auto}
+textarea.input{
+  flex:1; resize:none; max-height:240px; min-height:52px;
+  background:var(--panel-2); color:var(--text); border:1px solid var(--border);
+  border-radius:16px; padding:12px 14px; outline:none;
+  transition: box-shadow var(--duration) var(--ease), border-color var(--duration) var(--ease), background var(--duration) var(--ease);
+}
+textarea.input:focus{border-color: color-mix(in srgb, var(--accent), var(--border) 60%); box-shadow: var(--shadow-2)}
+.hint{color:var(--muted); font-size:12px; margin-top:6px; text-align:center}
+
+/* ====== AUTH ====== */
+.auth{
+  display:grid; place-items:center; height:100vh; padding:20px;
+  background:
+    radial-gradient(900px 500px at 75% -10%, color-mix(in srgb, var(--accent), transparent 94%) 0%, transparent 50%),
+    radial-gradient(600px 360px at -10% 10%, color-mix(in srgb, var(--accent), transparent 96%) 0%, transparent 55%);
+  animation: fade-in var(--duration-slow) var(--ease);
+}
+@keyframes fade-in{from{opacity:0} to{opacity:1}}
+.auth .pane{
+  width:min(480px, 94vw); background:var(--panel); border:1px solid var(--border);
+  border-radius:18px; padding:18px; box-shadow:var(--shadow-2);
+  transition: transform var(--duration) var(--ease); animation: lift-in var(--duration) var(--ease);
+}
+@keyframes lift-in{from{opacity:0; transform: translateY(8px)} to{opacity:1; transform:none}}
+@keyframes drop-in{from{opacity:0; transform: translateY(-8px)} to{opacity:1; transform:none}}
+.field{display:grid; gap:6px}
+.field input{
+  background:var(--panel-2); color:var(--text); border:1px solid var(--border); border-radius:12px; padding:10px 12px; outline:none;
+  transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease)
+}
+.field input:focus{border-color: color-mix(in srgb, var(--accent), var(--border) 55%); box-shadow: var(--shadow-1)}
+.tabs{display:flex; gap:8px; margin-bottom:6px}
+.tab{padding:8px 10px; border:1px solid var(--border); border-radius:10px; cursor:pointer; color:var(--muted); transition: background var(--duration) var(--ease), color var(--duration) var(--ease), transform var(--duration-fast) var(--ease)}
+.tab.active{color:var(--text); background:var(--panel-2)}
+
+/* ====== MODALS ====== */
+.modal{
+  position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.42); backdrop-filter: blur(4px); z-index:10;
+}
+.modal.open{display:grid; animation: fade-in var(--duration) var(--ease)}
+.card{
+  width:min(640px, 92vw); background:var(--panel); border:1px solid var(--border); border-radius:18px; padding:16px; box-shadow:var(--shadow-2);
+  transform: translateY(8px); animation: lift-in var(--duration) var(--ease)
+}
+
+/* Avatar preview */
+.avatar-preview{
+  width:56px; height:56px; border-radius:50%;
+  object-fit:cover; border:1px solid var(--border); background:var(--panel-2);
+}
+.avatar-preview.box{
+  width:56px; height:56px; border-radius:50%;
+  display:grid; place-items:center;
+  border:1px solid var(--border); background:var(--panel-2);
+  overflow:hidden;
+}
+.avatar-preview.box i{ font-size:20px; color:var(--icon); }
+.avatar-preview.box img{
+  display:none; width:100%; height:100%; object-fit:cover;
+}
+.avatar-preview.box.has-img i{ display:none; }
+.avatar-preview.box.has-img img{ display:block; }
+
+/* Segmented control for models */
+.seg{
+  display:flex; gap:8px; background:var(--panel-2); border:1px solid var(--border);
+  padding:6px; border-radius:12px; flex-wrap:wrap;
+}
+.seg .opt{
+  flex:1 1 220px; min-width:200px;
+  display:flex; flex-direction:column; align-items:flex-start;
+  background:var(--panel); border:1px solid var(--border); border-radius:10px;
+  padding:10px 12px; cursor:pointer; transition: transform var(--duration-fast) var(--ease),
+  border-color var(--duration) var(--ease), background var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+}
+.seg .opt .title{ font-weight:700; }
+.seg .opt .sub{ color:var(--muted); font-size:12px; }
+.seg .opt:hover{ transform:translateY(-1px); box-shadow:var(--shadow-1); }
+.seg .opt.active{ border-color: color-mix(in srgb, var(--accent), var(--border) 55%);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent), transparent 75%), var(--shadow-1); }
+
+/* Tiny avatar in "You" pill */
+.you-ava{ width:16px; height:16px; border-radius:50%; object-fit:cover;
+  margin-right:6px; border:1px solid var(--border); vertical-align:-2px; }
+
+/* Tooltip for delete button */
+.has-tip{ position:relative; }
+.has-tip::after{
+  content: attr(data-tip);
+  position:absolute; bottom:calc(100% + 8px); right:0;
+  background:var(--panel); color:var(--text); border:1px solid var(--border);
+  font-size:12px; padding:6px 8px; border-radius:8px; box-shadow:var(--shadow-2);
+  opacity:0; pointer-events:none; transform:translateY(6px) scale(.98);
+  transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease);
+  white-space:nowrap; z-index:5;
+}
+.has-tip:hover::after{ opacity:1; transform:none; }
+
+/* ====== RESPONSIVE ====== */
+@media (max-width: 980px){
+  .app{grid-template-columns:0 1fr}
+  .sidebar{position:fixed; inset:0 auto 0 0; width:min(86vw, 360px); transform:translateX(-100%); transition: transform var(--duration) var(--ease); z-index:9}
+  .sidebar.open{transform:translateX(0)}
+  .top-actions .hide-on-mobile{display:none}
+}
+.btn.block{width:100%}
+.msg .content a{ color: var(--accent); text-decoration: none; border-bottom: 1px dashed color-mix(in srgb, var(--accent), transparent 50%); }
+.msg .content a:hover{ text-decoration: underline; }
+.msg .content table{ width:100%; border-collapse: collapse; margin: 8px 0; font-size: 0.95em; }
+.msg .content th, .msg .content td{ border:1px solid var(--border); padding:6px 8px; }
+.msg .content th{ background: color-mix(in srgb, var(--panel-2), #fff 3%); }
+.msg .body{ display:flex; flex-direction:column; gap:6px; }
+.msg .meta{ font-size:12px; color:var(--muted); display:flex; align-items:center; gap:8px; }
+.msg .meta .name{ font-weight:700; color:var(--text); }
+</style>
+</head>
+<body class="theme-dark">
+<!-- ===== AUTH ===== -->
+<section id="auth" class="auth" aria-hidden="false">
+  <div class="pane">
+    <div class="brand" style="justify-content:center">
+      <div class="logo"><img src="unai.png" alt="UnAI"></div>
+      <h1>UnAI</h1>
+      <span class="pill">alpha</span>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="login">Login <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i></div>
+      <div class="tab" data-tab="register">Register <i class="fa-solid fa-user-plus" aria-hidden="true"></i></div>
+    </div>
+
+    <div id="auth-forms">
+      <div class="grid" id="login-form">
+        <div class="field">
+          <label>Email <i class="fa-solid fa-envelope" aria-hidden="true"></i></label>
+          <input id="login-email" type="email" placeholder="you@example.com" autocomplete="username"/>
+        </div>
+        <div class="field">
+          <label>Password <i class="fa-solid fa-lock" aria-hidden="true"></i></label>
+          <input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"/>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
+          <label style="display:flex; gap:6px; align-items:center"><input id="remember" type="checkbox"> Remember me</label>
+          <button id="login-btn" class="btn">Sign in <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i></button>
+        </div>
+      </div>
+
+      <div class="grid" id="register-form" style="display:none">
+        <div class="field">
+          <label>Display name <i class="fa-solid fa-user" aria-hidden="true"></i></label>
+          <input id="reg-name" placeholder="Unnamed"/>
+        </div>
+        <div class="field">
+          <label>Email <i class="fa-solid fa-envelope" aria-hidden="true"></i></label>
+          <input id="reg-email" type="email" placeholder="you@example.com" autocomplete="username"/>
+        </div>
+        <div class="field">
+          <label>Password <i class="fa-solid fa-lock" aria-hidden="true"></i></label>
+          <input id="reg-pass" type="password" placeholder="Create a password" autocomplete="new-password"/>
+        </div>
+        <div style="display:flex; justify-content:flex-end">
+          <button id="register-btn" class="btn">Create account <i class="fa-solid fa-user-plus" aria-hidden="true"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <p style="color:var(--muted); font-size:13px; margin-top:10px">
+      Demo-only auth stored in your browser. Swap to real backend later.
+    </p>
+  </div>
+</section>
+
+<!-- ==== Confirm dialog ==== -->
+<div id="confirm-modal" class="modal" role="dialog" aria-modal="true" aria-label="Confirm">
+  <div class="card">
+    <h3 id="confirm-title" style="margin:6px 6px 8px">Delete chat?</h3>
+    <p id="confirm-message" style="margin:0 6px 14px; color:var(--muted)">
+      This action cannot be undone.
+    </p>
+    <div style="display:flex; justify-content:flex-end; gap:8px">
+      <button class="btn secondary" id="confirm-cancel">Cancel</button>
+      <button class="btn danger" id="confirm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rename dialog -->
+<div id="rename-modal" class="modal" role="dialog" aria-modal="true" aria-label="Rename chat">
+  <div class="card">
+    <h3 style="margin:6px 6px 12px">Rename chat</h3>
+    <div class="field" style="margin-bottom:12px">
+      <label for="rename-input">Title</label>
+      <input id="rename-input" placeholder="New title">
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px">
+      <button class="btn secondary" id="rename-cancel">Cancel</button>
+      <button class="btn" id="rename-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<section id="app" class="app" aria-hidden="true" style="display:none">
+  <aside id="sidebar" class="sidebar">
+    <div class="brand">
+      <div class="logo"><img src="unai.png" alt="UnAI"></div>
+      <div style="flex:1">
+        <h1>UnAI</h1>
+        <div class="user-wrap">
+          <button class="pill user-pill" id="you-pill" type="button">
+            <i class="fa-solid fa-user" aria-hidden="true"></i> You
+          </button>
+      
+          <!-- Drop-down menu -->
+          <div id="user-menu" class="menu dropdown" role="menu" aria-hidden="true">
+            <button class="menu-item" id="open-settings" role="menuitem">
+              <i class="fa-solid fa-gear" aria-hidden="true"></i> Settings
+            </button>
+            <button class="menu-item" id="logout" role="menuitem">
+              <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Log out
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+      </div>
+    </div>
+
+    <div class="search">
+  <i class="fa-solid fa-magnifying-glass icon" aria-hidden="true"></i>
+      <input id="search" placeholder="Search conversations (Ctrl+K)">
+    </div>
+
+    <button id="start-chat" class="btn block" style="margin:4px 0 6px">
+      <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Start new chat
+    </button>
+    <div id="conv-list" class="list"></div>
+
+    <div class="footer">
+      <span id="conv-count">0 conversations</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div style="display:flex; align-items:center; gap:10px">
+        <div class="model">
+          <div class="pill" id="model-pill">UnAI Model</div>
+          <div class="pill hide-on-mobile" id="status-pill">Ready</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="btn secondary hide-on-mobile" id="rename-chat">Rename <i class="fa-solid fa-i-cursor" aria-hidden="true"></i></button>
+        <button class="btn hide-on-mobile" id="clear-chat">Clear <i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div id="chat" class="chat" aria-live="polite"></div>
+
+    <div class="composer">
+      <div class="wrap">
+        <textarea id="input" class="input" placeholder="Message UnAI…" rows="1"></textarea>
+        <button id="send" class="btn">Send <i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
+      </div>
+      <div class="hint">Enter to send • Shift+Enter for newline • / to quick-focus</div>
+    </div>
+  </main>
+</section>
+
+<!-- ===== SETTINGS (Theme + Profile) ===== -->
+<div id="settings-modal" class="modal" role="dialog" aria-modal="true" aria-label="Settings">
+  <div class="card">
+    <h2 style="margin:6px 6px 12px">Settings</h2>
+    <div class="field" style="margin-bottom:10px">
+      <label>Theme <i class="fa-solid fa-circle-half-stroke"></i></label>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <button class="btn ghost" data-theme="dark">Dark</button>
+        <button class="btn ghost" data-theme="light">Light</button>
+        <button class="btn ghost" data-theme="amoled">AMOLED</button>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0">
+      <div class="field"><label>Display name <i class="fa-solid fa-signature"></i></label><input id="profile-name"/></div>
+      <div class="field"><label>Email <i class="fa-solid fa-envelope"></i></label><input id="profile-email" readonly/></div>
+    </div>
+    <!-- Avatar -->
+    <div class="field" style="margin:8px 0">
+      <label>Avatar</label>
+      <div style="display:flex; align-items:center; gap:12px">
+        <div id="profile-avatar-preview" class="avatar-preview box">
+          <i class="fa-solid fa-user" aria-hidden="true"></i>
+          <img id="profile-avatar-img" alt="Avatar">
+        </div>
+        <input id="profile-avatar" type="file" accept="image/*" hidden>
+        <div style="display:flex; gap:8px; flex-wrap:wrap">
+          <button class="btn secondary" id="avatar-upload">Upload</button>
+          <button class="btn ghost" id="avatar-remove">Remove</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Model segmented control -->
+    <div class="field" style="margin:8px 0">
+      <label>AI model</label>
+      <div id="model-choices" class="seg">
+        <button class="opt" data-model="llama-3.1-8b-instant">
+          <span class="title">UnAI 0.1 • 1B</span>
+          <span class="sub">Instant (fast)</span>
+        </button>
+        <button class="opt" data-model="llama-3.3-70b-versatile">
+          <span class="title">UnAI 0.1 • 10B</span>
+          <span class="sub">Versatile (quality)</span>
+        </button>
+      </div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px">
+      <button class="btn secondary" id="settings-close">Close</button>
+      <button class="btn" id="settings-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  console.log('[UnAI] boot start…');
+
+  /* ============ Helpers & State ============ */
+  const $ = (s) => document.querySelector(s);
+  const el = (t,a={},...c)=>{const n=document.createElement(t);for(const[k,v]of Object.entries(a)){if(k==="class")n.className=v;else if(k.startsWith("on"))n.addEventListener(k.slice(2),v);else if(v!=null)n.setAttribute(k,v)}for(const x of c)n.append(x?.nodeType?x:document.createTextNode(x));return n};
+
+  const store = {
+    k: 'unai_state_v2',
+    load(){ try { return JSON.parse(localStorage.getItem(this.k)) || {}; } catch { return {}; } },
+    save(d){ localStorage.setItem(this.k, JSON.stringify(d)); }
+  };
+
+  const state = store.load();
+  state.users   ??= {};          // email -> {name,email,pass}
+  state.session ??= null;        // {email, remember?}
+  state.theme   ??= {name:'dark'};  // 'dark'|'light'|'amoled'
+  state.convs   ??= {};          // id -> {id,title,msgs}
+  state.order   ??= [];          // order of conv ids
+  store.save(state);
+
+  /* ============ Cache common nodes ============ */
+  const auth = $('#auth');
+  const app  = $('#app');
+
+  function normalizeForLLM(history){
+    // 1) strip empty assistant placeholders
+    const cleaned = [];
+    for (const m of history){
+      const content = (m.content ?? '');
+      if (m.role === 'assistant' && !content.trim()) continue; // skip placeholder
+      cleaned.push({ role: m.role, content });
+    }
+  
+    // 2) ensure last is user/tool (WebLLM requires this; safe for cloud too)
+    while (cleaned.length && !/^(user|tool)$/.test(cleaned[cleaned.length - 1].role)) {
+      cleaned.pop();
+    }
+  
+    // 3) last-resort: slice up to last user in the original history
+    if (!cleaned.length || !/^(user|tool)$/.test(cleaned[cleaned.length - 1]?.role || '')) {
+      const lastUserIdx = history.map(m => m.role).lastIndexOf('user');
+      if (lastUserIdx >= 0) {
+        return history.slice(0, lastUserIdx + 1).map(m => ({ role: m.role, content: m.content ?? '' }));
+      }
+    }
+    return cleaned;
+  }
+
+  /* ============ Tabs (Login/Register) ============ */
+  const tabs = document.querySelectorAll('.tab');
+  if (tabs.length) {
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(x => x.classList.toggle('active', x === tab));
+        const isLogin = tab.dataset.tab === 'login';
+        const loginForm = $('#login-form');
+        const regForm   = $('#register-form');
+        if (loginForm) loginForm.style.display = isLogin ? '' : 'none';
+        if (regForm)   regForm.style.display   = isLogin ? 'none' : '';
+      });
+    });
+  } else {
+    console.warn('[UnAI] No .tab elements found');
+  }
+
+  state.model ??= 'llama-3.1-8b-instant';
+
+  // Model label + pill
+  function modelLabel(id){
+    switch(id){
+      case 'llama-3.1-8b-instant': return 'UnAI • 1B (Fast)';
+      case 'llama-3.3-70b-versatile': return 'UnAI • 10B (Quality)';
+      default: return id || 'Model';
+    }
+  }
+  function updateModelPill(){
+    const pill = document.querySelector('#model-pill');
+    if (pill) pill.textContent = modelLabel(state.model);
+  }
+
+  /* ============ Auth actions ============ */
+  const registerBtn = $('#register-btn');
+  if (registerBtn) {
+    registerBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const name  = ($('#reg-name')?.value || '').trim() || 'Unnamed';
+      const email = ($('#reg-email')?.value || '').trim().toLowerCase();
+      const pass  = $('#reg-pass')?.value || '';
+      if (!email || !pass) { alert('Please fill email and password'); return; }
+      if (state.users[email]) { alert('Account already exists'); return; }
+      state.users[email] = { name, email, pass };
+      state.session = { email };
+      store.save(state);
+      console.log('[UnAI] Registered:', email);
+      boot();
+    });
+  } else {
+    console.warn('[UnAI] #register-btn not found');
+  }
+
+  const loginBtn = $('#login-btn');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const email = ($('#login-email')?.value || '').trim().toLowerCase();
+      const pass  = $('#login-pass')?.value || '';
+      const u = state.users[email];
+      if (!u || u.pass !== pass) { alert('Invalid credentials'); return; }
+      state.session = { email, remember: !!$('#remember')?.checked };
+      store.save(state);
+      console.log('[UnAI] Logged in:', email);
+      boot();
+    });
+  } else {
+    console.warn('[UnAI] #login-btn not found');
+  }
+
+  const logoutBtn = $('#logout');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      state.session = null; store.save(state);
+      if (app && auth) {
+        app.style.display='none'; app.setAttribute('aria-hidden','true');
+        auth.style.display='';   auth.setAttribute('aria-hidden','false');
+      }
+    });
+  }
+
+  function setModel(id, {save=true} = {}){
+    if (!id) return;
+    state.model = id;
+    if (save) store.save(state);
+    updateModelPill();
+    // sync UI pieces if they exist
+    document.querySelectorAll('#model-choices .opt').forEach(b=>{
+      b.classList.toggle('active', b.dataset.model === id);
+    });
+    const sel = document.querySelector('#model-select');
+    if (sel) sel.value = id;
+  }
+
+  /* ============ Conversations ============ */
+  const convList = $('#conv-list');
+  const chatEl   = $('#chat');
+  let currentId  = null;
+
+  function newConv(title='New chat') {
+    const id = crypto.randomUUID();
+    state.convs[id] = { id, title, msgs: [] };
+    state.order.unshift(id);
+    currentId = id;
+    store.save(state);
+    renderConvs(); renderChat();
+  }
+
+  async function renameConv(){
+    if(!currentId) return;
+    const current = state.convs[currentId]?.title || '';
+    const val = await renameDialog(current);
+    if (val === null) return;
+    const next = val || 'New chat';
+    state.convs[currentId].title = next;
+    store.save(state);
+    renderConvs();
+  }
+
+  function clearConv(){
+    if(!currentId) return;
+    const title = state.convs[currentId]?.title || 'this chat';
+    const ok = clearDialog(title);
+    if(!ok) return;
+  
+    state.convs[currentId].msgs = [];
+    store.save(state);
+    renderChat();
+  }
+
+  function deleteConv(id){
+    if(!state.convs[id]) return;
+    const isCurrent = id === currentId;
+    delete state.convs[id];
+    state.order = state.order.filter(x => x !== id);
+    if(isCurrent) currentId = state.order[0] || null;
+    store.save(state); renderConvs(); renderChat();
+  }
+
+  function confirmDialog({ title='Are you sure?', message='This action cannot be undone.', confirmText='Confirm' } = {}) {
+    return new Promise(resolve => {
+      const modal = document.querySelector('#confirm-modal');
+      const t = document.querySelector('#confirm-title');
+      const m = document.querySelector('#confirm-message');
+      const ok = document.querySelector('#confirm-ok');
+      const cancel = document.querySelector('#confirm-cancel');
+  
+      if (t) t.textContent = title;
+      if (m) m.textContent = message;
+      if (ok) ok.textContent = confirmText;
+  
+      modal?.classList.add('open');
+  
+      const close = (val) => {
+        modal?.classList.remove('open');
+        ok?.removeEventListener('click', onOk);
+        cancel?.removeEventListener('click', onCancel);
+        modal?.removeEventListener('click', onBackdrop);
+        resolve(val);
+      };
+      const onOk = () => close(true);
+      const onCancel = () => close(false);
+      const onBackdrop = (e) => { if (e.target === modal) close(false); };
+  
+      ok?.addEventListener('click', onOk);
+      cancel?.addEventListener('click', onCancel);
+      modal?.addEventListener('click', onBackdrop);
+    });
+  }
+  
+  function renderConvs(filter=''){
+    if(!convList) return;
+    convList.innerHTML = '';
+    let count = 0;
+  
+    for(const id of state.order){
+      const c = state.convs[id];
+      if(!c) continue;
+      if(filter && !c.title.toLowerCase().includes(filter.toLowerCase())) continue;
+  
+      // Left: dot + title
+      const left = el('div',{class:'conv-main'},
+        el('div',{class:'dot'}),
+        el('div',{class:'title'}, c.title)
+      );
+  
+      // Right: trash button (stops click-through)
+      const del = el('button',{
+        class:'iconbtn trash', title:'Delete chat',
+        onclick: async (e) => {
+          e.stopPropagation();
+          const ok = await confirmDialog({
+            title: 'Delete this chat?',
+            message: 'This will permanently remove the conversation.',
+            confirmText: 'Delete'
+          });
+          if (ok) deleteConv(id);
+        }
+      }, el('i',{class:'fa-solid fa-trash', 'aria-hidden':'true'}));
+  
+      // Whole card
+      const item = el('div',{
+        class:'conv'+(id===currentId?' active':''),
+        onclick:()=>{ currentId=id; renderConvs(); renderChat(); }
+      }, left, del);
+  
+      convList.append(item); count++;
+    }
+    const cc = $('#conv-count');
+    if (cc) cc.textContent = `${count} conversation${count===1?'':'s'}`;
+  }
+
+  $('#start-chat')?.addEventListener('click', () => newConv('New chat'));
+  $('#rename-chat')?.addEventListener('click', renameConv);
+  $('#clear-chat')?.addEventListener('click', clearConv);
+  $('#search')?.addEventListener('input', e => renderConvs(e.target.value));
+
+  /* ============ Chat render ============ */
+  function msgNode(role, content){
+    const isUser = role==='user';
+    let avatar;
+    if (isUser) {
+      const u = currentUser();
+      if (u?.avatar) {
+        avatar = el('div',{class:'avatar'}, el('img',{src:u.avatar, alt:'You'}));
+      } else {
+      avatar = el('div',{class:'avatar'}, el('i',{class:'fa-solid fa-user','aria-hidden':'true'}));
+    }
+    } else {
+      avatar = el('div',{class:'avatar'}, el('img',{src:'unai.png', alt:'UnAI'}));
+    }
+    const contentNode = el('div',{class:'content'}); contentNode.innerHTML = renderMarkdown(content);
+    return el('div',{class:'msg '+(isUser?'user':'assistant')}, avatar, contentNode);
+  }
+
+  function renderChat() {
+    if (!chatEl) return;
+    chatEl.innerHTML = '';
+    const c = state.convs[currentId];
+    if (!c) { chatEl.append(el('div',{},'No chat selected. Create a new one.')); return; }
+    for (const m of c.msgs) chatEl.append(msgNode(m.role, m.content));
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  /* ============ Composer / Send ============ */
+  const input = $('#input');
+  function autosize(){ if(!input) return; input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,240)+'px'; }
+  input?.addEventListener('input', autosize);
+  input?.addEventListener('keydown', e => { if (e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); }});
+  document.addEventListener('keydown', e => {
+    if (e.key==='/' && document.activeElement!==input){ e.preventDefault(); input?.focus(); }
+    if (e.ctrlKey && e.key.toLowerCase()==='n'){ e.preventDefault(); newConv(); }
+    if (e.ctrlKey && e.key.toLowerCase()==='k'){ e.preventDefault(); $('#search')?.focus(); }
+  });
+  $('#send')?.addEventListener('click', send);
+
+  function clearDialog(title='this chat'){
+    return new Promise(resolve=>{
+      const modal  = document.querySelector('#clear-modal');
+      const tSpan  = document.querySelector('#clear-title');
+      const ok     = document.querySelector('#clear-ok');
+      const cancel = document.querySelector('#clear-cancel');
+  
+      if (tSpan) tSpan.textContent = title;
+  
+      const close = (val)=>{
+        modal?.classList.remove('open');
+        ok?.removeEventListener('click', onOk);
+        cancel?.removeEventListener('click', onCancel);
+        modal?.removeEventListener('click', onBackdrop);
+        document.removeEventListener('keydown', onKey);
+        resolve(val);
+      };
+      const onOk      = ()=> close(true);
+      const onCancel  = ()=> close(false);
+      const onBackdrop= (e)=>{ if(e.target===modal) close(false); };
+      const onKey     = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); onOk(); } if(e.key==='Escape'){ e.preventDefault(); onCancel(); } };
+  
+      ok?.addEventListener('click', onOk);
+      cancel?.addEventListener('click', onCancel);
+      modal?.addEventListener('click', onBackdrop);
+      document.addEventListener('keydown', onKey);
+  
+      modal?.classList.add('open');
+    });
+  }
+
+  async function send(){
+    const text = input?.value.trim();
+    if (!text) return;
+    if (!currentId) newConv();
+    const conv = state.convs[currentId];
+    conv.msgs.push({role:'user', content:text, at:Date.now()});
+    if (conv.msgs.length===1) conv.title = text.slice(0,42) + (text.length>42?'…':'');
+    store.save(state);
+
+    input.value=''; autosize(); renderChat();
+
+    const placeholder = {role:'assistant', content:'', at:Date.now()};
+    conv.msgs.push(placeholder); renderChat();
+    const node = chatEl.lastElementChild.querySelector('.content');
+    const status = $('#status-pill'); if (status) status.textContent='Thinking…';
+
+    const reply = await llmReplyCloud(conv.msgs);
+    await streamToNode(reply, node);
+
+    placeholder.content = reply; store.save(state);
+    if (status) status.textContent='Ready';
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  const delay = (ms) => new Promise(r=>setTimeout(r,ms));
+  async function streamToNode(text, node){
+    node.textContent = '';
+    if (typeof text === 'string') {
+      const words = text.split(/(\s+)/);
+      for (const w of words) {
+        node.append(w);
+        await delay(16);
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+    } else if (text instanceof Node) {
+      node.append(text);
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+    node.innerHTML = renderMarkdown(text);
+  }
+
+  function renderMarkdown(text){
+    try{
+      if (window.marked && window.DOMPurify){
+        const html = marked.parse(String(text ?? ''));
+        return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+      }
+    }catch(e){ console.warn('[UnAI] MD render fail', e); }
+    const div = document.createElement('div');
+    div.textContent = String(text ?? '');
+    return div.innerHTML; // safe escape fallback
+  }
+
+  /* ============ Theme (3 presets) ============ */
+  function applyTheme(){
+    document.body.classList.remove('theme-dark','theme-light','theme-amoled');
+    const t = state.theme.name || 'dark';
+    document.body.classList.add('theme-'+t);
+  }
+
+  /* ============ Settings (theme + profile) ============ */
+  const settingsModal = $('#settings-modal');
+  
+  /* OPEN */
+  $('#open-settings')?.addEventListener('click', () => {
+    const u = currentUser();
+  
+    // basic fields
+    $('#profile-name')  && ($('#profile-name').value  = u?.name  || '');
+    $('#profile-email') && ($('#profile-email').value = u?.email || '');
+  
+    // avatar preview + reset file input, clear pending
+    setAvatarPreview(u?.avatar || '');
+    const file = document.querySelector('#profile-avatar');
+    if (file) file.value = '';
+    _pendingAvatar = null;
+  
+    // MODEL UI — preselect & set pending to current state
+    const currentModel = state.model || 'llama-3.1-8b-instant';
+    _pendingModel = currentModel;
+  
+    // segmented buttons
+    document.querySelectorAll('#model-choices .opt').forEach(b => {
+      b.classList.toggle('active', b.dataset.model === currentModel);
+    });
+  
+    // optional <select> fallback (if you kept it)
+    const modelSel = document.querySelector('#model-select');
+    if (modelSel) modelSel.value = currentModel;
+  
+    settingsModal?.classList.add('open');
+  });
+  
+  /* CLOSE */
+  $('#settings-close')?.addEventListener('click', () => {
+    settingsModal?.classList.remove('open');
+    _pendingAvatar = null;
+    _pendingModel  = null;
+  });
+  
+  /* SAVE */
+  $('#settings-save')?.addEventListener('click', () => {
+    const u = currentUser(); if (!u) return;
+  
+    // name
+    u.name = ($('#profile-name')?.value || u.name).trim();
+  
+    // avatar (only commit if changed)
+    if (_pendingAvatar !== null) {
+      if (_pendingAvatar === '') delete u.avatar;
+      else u.avatar = _pendingAvatar;
+    }
+  
+    // model (prefer segmented selection, fallback to <select>, then state)
+    const modelSel = document.querySelector('#model-select');
+    const chosenModel = _pendingModel || (modelSel && modelSel.value) || state.model || 'llama-3.1-8b-instant';
+    state.model = chosenModel;
+  
+    // persist user + state
+    state.users[u.email] = u;
+    store.save(state);
+  
+    // update UI (supports either helper you have)
+    if (typeof setYouPill === 'function') setYouPill(u.name);
+    else if (typeof setYouPillName === 'function') setYouPillName(u.name);
+    if (typeof updateModelPill === 'function') updateModelPill();
+  
+    // close + reset pendings
+    settingsModal?.classList.remove('open');
+    _pendingAvatar = null;
+    _pendingModel  = null;
+  });
+  settingsModal?.querySelectorAll('[data-theme]')?.forEach(b => {
+    b.addEventListener('click', () => {
+      state.theme.name = b.getAttribute('data-theme');
+      applyTheme(); store.save(state);
+    });
+  });
+  $('#theme')?.addEventListener('click', () => $('#open-settings')?.click());
+
+    /* ============ User menu (drop-down) ============ */
+
+  function setYouPillName(name){
+    const you = document.querySelector('#you-pill');
+    if (you) you.innerHTML = `<i class="fa-solid fa-user" aria-hidden="true"></i> ${name || 'You'}`;
+  }
+
+  let _pendingAvatar = null;  // null = unchanged; string = new dataURL; '' = remove
+  $('#avatar-upload')?.addEventListener('click', ()=> $('#profile-avatar')?.click());
+  $('#profile-avatar')?.addEventListener('change', async (e)=>{
+  const f = e.target.files?.[0]; if(!f) return;
+  const dataURL = await fileToDataURLResized(f, 192);
+  _pendingAvatar = dataURL;
+  setAvatarPreview(dataURL);
+  });
+  $('#avatar-remove')?.addEventListener('click', ()=>{
+  _pendingAvatar = '';
+  setAvatarPreview('');
+  });
+
+  let _pendingModel = null;
+  document.querySelectorAll('#model-choices .opt').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#model-choices .opt').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      _pendingModel = btn.dataset.model;
+    });
+  });
+  
+  const userWrap = document.querySelector('.user-wrap');
+  const userMenu = document.querySelector('#user-menu');
+  const youPill  = document.querySelector('#you-pill');
+  
+  function closeUserMenu(){ userMenu?.classList.remove('open'); userMenu?.setAttribute('aria-hidden','true'); }
+  function toggleUserMenu(e){
+    e?.stopPropagation();
+    userMenu?.classList.toggle('open');
+    const isOpen = userMenu?.classList.contains('open');
+    userMenu?.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  }
+  youPill?.addEventListener('click', toggleUserMenu);
+  document.addEventListener('click', (e)=>{
+    if (!userWrap?.contains(e.target)) closeUserMenu();
+  });
+
+  document.querySelectorAll('#model-choices .opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _pendingModel = btn.dataset.model;
+      document.querySelectorAll('#model-choices .opt').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      // instant preview of the pill text (optional)
+      if (typeof updateModelPill === 'function') {
+        const old = state.model; state.model = _pendingModel; updateModelPill(); state.model = old;
+      }
+    });
+  });
+
+  const del = el('button',{
+    class:'iconbtn trash has-tip',
+    'data-tip':'Shift-click: delete instantly',
+    title:'Delete chat',
+    onclick: async (e) => {
+      e.stopPropagation();
+      if (e.shiftKey) { deleteConv(id); return; } // bypass modal
+      const ok = await confirmDialog({
+        title: 'Delete this chat?',
+        message: 'This will permanently remove the conversation.',
+        confirmText: 'Delete'
+      });
+      if (ok) deleteConv(id);
+    }
+  }, el('i',{class:'fa-solid fa-trash','aria-hidden':'true'}));
+
+  function renameDialog(currentTitle=''){
+    return new Promise(resolve=>{
+      const modal = document.querySelector('#rename-modal');
+      const input = document.querySelector('#rename-input');
+      const ok    = document.querySelector('#rename-save');
+      const cancel= document.querySelector('#rename-cancel');
+  
+      // Prime values
+      if (input) { input.value = currentTitle; setTimeout(()=>{ input.focus(); input.select(); }, 0); }
+  
+      const close = (val) => {
+        modal?.classList.remove('open');
+        ok?.removeEventListener('click', onOk);
+        cancel?.removeEventListener('click', onCancel);
+        modal?.removeEventListener('click', onBackdrop);
+        document.removeEventListener('keydown', onKey);
+        resolve(val);
+      };
+      const onOk = () => close( (input?.value || '').trim() );
+      const onCancel = () => close(null);
+      const onBackdrop = (e) => { if (e.target === modal) close(null); };
+      const onKey = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); onOk(); }
+        if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+      };
+  
+      ok?.addEventListener('click', onOk);
+      cancel?.addEventListener('click', onCancel);
+      modal?.addEventListener('click', onBackdrop);
+      document.addEventListener('keydown', onKey);
+  
+      modal?.classList.add('open');
+    });
+  }
+  
+  /* ============ Sidebar toggle ============ */
+  $('#open-sidebar')?.addEventListener('click', () => $('#sidebar')?.classList.toggle('open'));
+
+  /* ============ Helpers ============ */
+  function currentUser(){
+    const email = state.session?.email;
+    return email ? state.users[email] : null;
+  }
+
+  function setAvatarPreview(dataURL){
+    const box = document.querySelector('#profile-avatar-preview');
+    const img = document.querySelector('#profile-avatar-img');
+    if (!box || !img) return;
+    if (dataURL && dataURL.trim()){
+      img.src = dataURL;
+      box.classList.add('has-img');
+    } else {
+      img.removeAttribute('src');
+      box.classList.remove('has-img'); // shows the <i class="fa-user">
+    }
+  }
+
+  async function llmReplyCloud(messages) {
+    const res = await fetch('https://unai-alpha.bbrraaggee.workers.dev/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: state.model || 'llama-3.1-8b-instant',
+        messages: normalizeForLLM(messages),
+        temperature: 0.7
+      })
+    });
+    if (!res.ok) throw new Error('API error: ' + await res.text());
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content ?? '(no content)';
+  }
+
+  // Resize an image file to a square dataURL (default 192px) to keep localStorage small
+  function fileToDataURLResized(file, size=192){
+    return new Promise((resolve, reject)=>{
+      const img = new Image();
+      img.onload = ()=> {
+        const canvas = document.createElement('canvas');
+        const s = size;
+        canvas.width = canvas.height = s;
+        const ctx = canvas.getContext('2d');
+        // cover-fit crop
+        const r = Math.max(s/img.width, s/img.height);
+        const w = img.width * r, h = img.height * r;
+        const x = (s - w)/2, y = (s - h)/2;
+        ctx.drawImage(img, x, y, w, h);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = reject;
+      const reader = new FileReader();
+      reader.onload = e => img.src = e.target.result;
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  
+  // Update "You" pill with avatar (if any)
+  function setYouPill(name){
+    const you = document.querySelector('#you-pill'); if(!you) return;
+    const u = currentUser();
+    if (u?.avatar) {
+      you.innerHTML = `<img class="you-ava" src="${u.avatar}" alt=""> ${name || 'You'}`;
+    } else {
+      you.innerHTML = `<i class="fa-solid fa-user" aria-hidden="true"></i> ${name || 'You'}`;
+    }
+  }
+
+  /* ============ Boot ============ */
+  function boot(){
+    console.log('[UnAI] boot()');
+    applyTheme();
+    updateModelPill();
+    const u = currentUser();
+    if (!u) {
+      if (auth && app) {
+        auth.style.display='';  auth.setAttribute('aria-hidden','false');
+        app.style.display='none'; app.setAttribute('aria-hidden','true');
+      }
+      return;
+    }
+    setYouPillName(u.name);
+    if (auth && app) {
+      auth.style.display='none'; auth.setAttribute('aria-hidden','true');
+      app.style.display='grid'; app.setAttribute('aria-hidden','false');
+    }
+    if (state.order.length === 0) newConv('Welcome to UnAI');
+    else currentId = state.order[0];
+    renderConvs(); renderChat();
+    setYouPill(u.name);
+  }
+
+  boot();
+  console.log('[UnAI] boot done.');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+name = "unai-api"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+# Set this to the exact public origins that may call your Worker.
+# For GitHub Pages, include the scheme + hostname only.
+# Example:
+# [vars]
+# ALLOWED_ORIGINS = "https://the-unnamed-official.github.io,https://unai.example.com"
+# UNAI_SYSTEM_PROMPT = "You are UnAI, short for Unnamed Artificial Intelligence."
+
+# NEVER put GROQ_API_KEY here.
+# Add it as an encrypted Worker secret instead:
+#   npx wrangler secret put GROQ_API_KEY
